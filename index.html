@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>旅程管家 🗼 跨平台通用版</title>
+    <title>旅程管家 🗼 GitHub 穩定版</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
@@ -44,9 +44,10 @@
 
         .text-theme { color: var(--theme-color); }
         .bg-theme { background-color: var(--theme-color); }
+        .border-theme { border-color: var(--theme-color); }
 
         .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .modal-bg { background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); z-index: 100; }
+        .modal-bg { background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); z-index: 100; position: fixed; inset: 0; display: none; }
         .animate-up { animation: slideUp 0.3s ease-out; }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
@@ -62,19 +63,17 @@
         }
 
         .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 10px 20px; border-radius: 20px; font-size: 12px; z-index: 9999; display: none; }
-        .loading-spinner { border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top: 3px solid #fff; width: 16px; height: 16px; animation: spin 1s linear infinite; display: inline-block; }
+        .loading-spinner { border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; border-top: 2px solid #fff; width: 14px; height: 14px; animation: spin 1s linear infinite; display: inline-block; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
-        /* 行程卡片類別樣式 */
         .card-food { background-color: #fff7ed; border: 1px solid #fed7aa; }
         .card-spot { background-color: #f0fdf4; border: 1px solid #bbf7d0; }
         .card-transit { background-color: #f0f9ff; border: 1px solid #bae6fd; }
-        .card-park { background-color: #f5f3ff; border: 1px solid #ddd6fe; }
-        .card-shrine { background-color: #fef2f2; border: 1px solid #fecaca; }
         .card-flight { background-color: #fff1f2; border: 1px solid #fda4af; }
         .card-default { background-color: #ffffff; border: 1px solid #f3ebeb; }
 
         .color-dot { width: 32px; height: 32px; border-radius: 50%; cursor: pointer; transition: transform 0.2s; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .color-dot:active { transform: scale(0.9); }
         .color-dot.selected { border: 2px solid #5a4a42; transform: scale(1.1); }
     </style>
 </head>
@@ -84,57 +83,59 @@
 
     <header class="kawaii-header pt-12 pb-14 px-6 text-center relative overflow-hidden">
         <div class="absolute top-4 right-4 z-30">
-            <button onclick="saveToCloud()" id="btn-save" class="bg-white/20 hover:bg-white/40 text-white px-4 py-2 rounded-full text-[10px] font-bold flex items-center gap-2 transition-all">
-                <i class="fas fa-cloud-upload-alt"></i> <span id="save-text">儲存雲端</span>
+            <button id="btn-save-cloud" class="bg-white/20 hover:bg-white/40 text-white px-4 py-2 rounded-full text-[10px] font-bold flex items-center gap-2 transition-all">
+                <i class="fas fa-cloud-upload-alt"></i> <span id="save-label">儲存雲端</span>
             </button>
         </div>
         
-        <div class="relative z-10 inline-block px-4 py-2 cursor-pointer" onclick="openTitleModal()">
-            <h1 id="main-title" class="text-4xl font-bold text-white tracking-widest inline" style="font-family: 'ZCOOL KuaiLe', sans-serif;">TOKYO</h1>
+        <div class="relative z-10 inline-block px-4 py-2 cursor-pointer" id="header-edit-trigger">
+            <h1 id="display-main-title" class="text-4xl font-bold text-white tracking-widest inline" style="font-family: 'ZCOOL KuaiLe', sans-serif;">TOKYO</h1>
             <i class="fas fa-pen text-white/50 text-xs ml-2 align-middle"></i>
-            <p id="sub-title" class="text-white/90 text-[10px] mt-2 font-medium tracking-widest uppercase">載入中...</p>
+            <p id="display-sub-title" class="text-white/90 text-[10px] mt-2 font-medium tracking-widest uppercase">載入中...</p>
         </div>
     </header>
 
     <nav class="flex flex-col items-center -mt-8 relative z-20 px-4">
         <div class="bg-white/95 backdrop-blur-md p-1.5 rounded-full shadow-lg flex space-x-1 border border-pink-50 overflow-x-auto hide-scrollbar max-w-full">
-            <button onclick="switchTab('itinerary')" id="btn-itinerary" class="tab-btn active px-4 py-2 rounded-full text-[11px] font-bold whitespace-nowrap">行程</button>
-            <button onclick="switchTab('members')" id="btn-members" class="tab-btn px-4 py-2 rounded-full text-[11px] font-bold text-gray-400 whitespace-nowrap">分帳</button>
-            <button onclick="switchTab('analysis')" id="btn-analysis" class="tab-btn px-4 py-2 rounded-full text-[11px] font-bold text-gray-400 whitespace-nowrap">分析</button>
-            <button onclick="switchTab('memo')" id="btn-memo" class="tab-btn px-4 py-2 rounded-full text-[11px] font-bold text-gray-400 whitespace-nowrap">待辦</button>
+            <button id="nav-itinerary" class="tab-btn active px-4 py-2 rounded-full text-[11px] font-bold whitespace-nowrap">行程</button>
+            <button id="nav-members" class="tab-btn px-4 py-2 rounded-full text-[11px] font-bold text-gray-400 whitespace-nowrap">分帳</button>
+            <button id="nav-analysis" class="tab-btn px-4 py-2 rounded-full text-[11px] font-bold text-gray-400 whitespace-nowrap">分析</button>
+            <button id="nav-memo" class="tab-btn px-4 py-2 rounded-full text-[11px] font-bold text-gray-400 whitespace-nowrap">待辦</button>
         </div>
     </nav>
 
     <main class="mt-8 px-5 max-w-md mx-auto">
-        <section id="sec-itinerary" class="space-y-4">
-            <div id="day-tabs" class="flex space-x-2 overflow-x-auto hide-scrollbar py-2"></div>
-            <div id="itinerary-list" class="space-y-3 pb-4"></div>
-            <button onclick="openItModal()" class="w-full py-4 bg-white border-dashed border-2 border-pink-100 text-pink-300 rounded-2xl font-bold text-sm">+ 新增行程</button>
-        </section>
+        <!-- 行程區 -->
+        <div id="section-itinerary" class="tab-section space-y-4">
+            <div id="day-tabs-container" class="flex space-x-2 overflow-x-auto hide-scrollbar py-2"></div>
+            <div id="itinerary-list-container" class="space-y-3 pb-4"></div>
+            <button id="btn-add-itinerary" class="w-full py-4 bg-white border-dashed border-2 border-theme text-theme rounded-2xl font-bold text-sm opacity-60">+ 新增行程</button>
+        </div>
 
-        <section id="sec-members" class="hidden space-y-4">
+        <!-- 分帳區 -->
+        <div id="section-members" class="tab-section hidden space-y-4">
             <div class="bg-white p-5 rounded-[28px] border border-gray-100 shadow-sm space-y-4">
                 <div class="flex justify-between items-center">
                     <h3 class="font-bold text-gray-700 text-sm">旅伴成員</h3>
-                    <button onclick="openMemberModal()" class="text-[10px] text-theme font-bold bg-gray-50 px-3 py-1 rounded-full"><i class="fas fa-user-edit mr-1"></i> 管理旅伴</button>
+                    <button id="btn-manage-members" class="text-[10px] text-theme font-bold bg-theme/10 px-3 py-1 rounded-full"><i class="fas fa-user-edit mr-1"></i> 管理旅伴</button>
                 </div>
-                <div id="member-list" class="flex flex-wrap gap-2"></div>
+                <div id="member-badges-container" class="flex flex-wrap gap-2"></div>
             </div>
 
             <div class="bg-white p-5 rounded-[28px] border border-gray-100 shadow-sm space-y-4">
-                <h3 class="font-bold text-gray-700 text-sm">新增支出</h3>
+                <h3 class="font-bold text-gray-700 text-sm">新增支出紀錄</h3>
                 <div class="space-y-3">
-                    <input id="bill-desc" type="text" placeholder="項目內容" class="w-full p-3 bg-gray-50 rounded-xl text-xs border-0 outline-none">
+                    <input id="in-bill-desc" type="text" placeholder="項目內容" class="w-full p-3 bg-gray-50 rounded-xl text-xs outline-none border-0">
                     <div class="grid grid-cols-2 gap-2">
-                        <input id="bill-amount" type="number" placeholder="金額" class="w-full p-3 bg-gray-50 rounded-xl text-xs border-0 outline-none">
-                        <select id="bill-currency" class="bg-gray-50 rounded-xl px-2 text-[10px] border-0 outline-none">
+                        <input id="in-bill-amount" type="number" placeholder="金額" class="w-full p-3 bg-gray-50 rounded-xl text-xs outline-none border-0">
+                        <select id="in-bill-currency" class="bg-gray-50 rounded-xl px-2 text-[10px] outline-none border-0">
                             <option value="JPY">JPY ¥</option>
                             <option value="TWD">TWD $</option>
                         </select>
                     </div>
                     <div class="grid grid-cols-2 gap-2">
-                        <select id="bill-payer" class="w-full p-2.5 bg-gray-50 rounded-xl text-[10px] border-0 outline-none"></select>
-                        <select id="bill-cat" class="w-full p-2.5 bg-gray-50 rounded-xl text-[10px] border-0 outline-none">
+                        <select id="in-bill-payer" class="w-full p-2.5 bg-gray-50 rounded-xl text-[10px] outline-none border-0"></select>
+                        <select id="in-bill-cat" class="w-full p-2.5 bg-gray-50 rounded-xl text-[10px] outline-none border-0">
                             <option value="food">🍱 美食</option>
                             <option value="transit">🚇 交通</option>
                             <option value="shop">🛍️ 購物</option>
@@ -143,190 +144,154 @@
                             <option value="other">❓ 其他</option>
                         </select>
                     </div>
-                    <div id="bill-sharers" class="grid grid-cols-2 gap-2 py-1"></div>
+                    <div id="bill-sharers-container" class="grid grid-cols-2 gap-2 py-1"></div>
                 </div>
-                <button onclick="addBill()" class="w-full py-3.5 bg-theme text-white rounded-xl font-bold text-sm">加入清單</button>
+                <button id="btn-submit-bill" class="w-full py-3.5 bg-theme text-white rounded-xl font-bold shadow-md text-sm">加入清單</button>
             </div>
 
             <div class="bg-white p-5 rounded-[28px] border border-gray-100 shadow-sm">
                 <h3 class="font-bold text-gray-700 text-sm mb-4">支出歷史</h3>
-                <div id="bill-history" class="space-y-3"></div>
+                <div id="bill-history-container" class="space-y-3"></div>
             </div>
-        </section>
+        </div>
 
-        <section id="sec-analysis" class="hidden space-y-4">
+        <!-- 分析區 -->
+        <div id="section-analysis" class="tab-section hidden space-y-4">
             <div class="bg-white p-6 rounded-[28px] border border-gray-100 shadow-sm space-y-6">
-                <div id="pie-chart-view" class="pie-chart"></div>
-                <div id="analysis-categories" class="space-y-2"></div>
-                <div id="member-analysis-list" class="space-y-2 border-t pt-4"></div>
+                <div id="pie-chart-ui" class="pie-chart"></div>
+                <div id="analysis-cats-ui" class="space-y-2"></div>
+                <div class="pt-4 border-t border-gray-50">
+                    <h4 class="font-bold text-gray-700 text-xs mb-3">個人負擔 (TWD)</h4>
+                    <div id="member-analysis-ui" class="space-y-2"></div>
+                </div>
             </div>
-        </section>
+        </div>
 
-        <section id="sec-memo" class="hidden space-y-4">
-            <div id="memo-items" class="space-y-3"></div>
-            <button onclick="openMemoModal()" class="w-full py-4 bg-white border-dashed border-2 border-amber-100 text-amber-400 rounded-2xl font-bold text-sm">+ 新增待辦</button>
-        </section>
+        <!-- 待辦區 -->
+        <div id="section-memo" class="tab-section hidden space-y-4">
+            <div id="memo-list-container" class="space-y-3"></div>
+            <button id="btn-add-memo" class="w-full py-4 bg-white border-dashed border-2 border-amber-100 text-amber-400 rounded-2xl font-bold text-sm">+ 新增待辦</button>
+        </div>
     </main>
 
-    <!-- Modals (設定/旅伴/行程/待辦) -->
-    <div id="title-modal" class="modal-bg fixed inset-0 hidden flex items-end justify-center p-4">
-        <div class="bg-white w-full max-w-sm rounded-[32px] p-6 space-y-4 animate-up shadow-2xl">
-            <div class="flex justify-between items-center font-bold text-gray-700">旅程設定 <button onclick="closeModal('title-modal')"><i class="fas fa-times"></i></button></div>
+    <!-- 各式彈窗 -->
+    <div id="modal-settings" class="modal-bg flex items-end justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-[32px] p-6 space-y-4 animate-up">
+            <div class="flex justify-between items-center font-bold text-gray-700">旅程設定 <button class="close-modal-btn"><i class="fas fa-times"></i></button></div>
             <div class="space-y-3">
-                <label class="text-[10px] font-bold text-gray-400">主題色</label>
-                <div class="flex gap-4 justify-center py-2">
-                    <div onclick="selectTheme('#ffb7c5', 'linear-gradient(135deg, #ffb7c5, #ffcfd9)')" class="color-dot bg-[#ffb7c5]" data-color="#ffb7c5"></div>
-                    <div onclick="selectTheme('#93c5fd', 'linear-gradient(135deg, #93c5fd, #c7d2fe)')" class="color-dot bg-[#93c5fd]" data-color="#93c5fd"></div>
-                    <div onclick="selectTheme('#86efac', 'linear-gradient(135deg, #86efac, #d9f99d)')" class="color-dot bg-[#86efac]" data-color="#86efac"></div>
-                    <div onclick="selectTheme('#c4b5fd', 'linear-gradient(135deg, #c4b5fd, #f5d0fe)')" class="color-dot bg-[#c4b5fd]" data-color="#c4b5fd"></div>
-                    <div onclick="selectTheme('#94a3b8', 'linear-gradient(135deg, #94a3b8, #cbd5e1)')" class="color-dot bg-[#94a3b8]" data-color="#94a3b8"></div>
+                <label class="text-[10px] font-bold text-gray-400">主題顏色</label>
+                <div class="flex gap-4 justify-center py-2" id="color-picker-ui">
+                    <div class="color-dot bg-[#ffb7c5]" data-c="#ffb7c5" data-g="linear-gradient(135deg, #ffb7c5, #ffcfd9)"></div>
+                    <div class="color-dot bg-[#93c5fd]" data-c="#93c5fd" data-g="linear-gradient(135deg, #93c5fd, #c7d2fe)"></div>
+                    <div class="color-dot bg-[#86efac]" data-c="#86efac" data-g="linear-gradient(135deg, #86efac, #d9f99d)"></div>
+                    <div class="color-dot bg-[#c4b5fd]" data-c="#c4b5fd" data-g="linear-gradient(135deg, #c4b5fd, #f5d0fe)"></div>
+                    <div class="color-dot bg-[#94a3b8]" data-c="#94a3b8" data-g="linear-gradient(135deg, #94a3b8, #cbd5e1)"></div>
                 </div>
-                <input id="edit-main-title" type="text" placeholder="主標題" class="w-full p-4 bg-gray-50 rounded-xl border-0 text-sm">
-                <input id="edit-sub-title" type="text" placeholder="副標題" class="w-full p-4 bg-gray-50 rounded-xl border-0 text-sm">
+                <input id="in-title-main" type="text" placeholder="主標題" class="w-full p-4 bg-gray-50 rounded-xl border-0 text-sm outline-none">
+                <input id="in-title-sub" type="text" placeholder="副標題" class="w-full p-4 bg-gray-50 rounded-xl border-0 text-sm outline-none">
             </div>
-            <button onclick="saveHeader()" class="w-full py-3.5 bg-theme text-white rounded-xl font-bold text-sm">確認更新</button>
+            <button id="btn-save-settings" class="w-full py-3.5 bg-theme text-white rounded-xl font-bold text-sm">確認更新</button>
         </div>
     </div>
 
-    <div id="member-modal" class="modal-bg fixed inset-0 hidden flex items-end justify-center p-4">
-        <div class="bg-white w-full max-w-sm rounded-[32px] p-6 space-y-4 animate-up shadow-2xl">
-            <div class="flex justify-between items-center font-bold text-gray-700">旅伴管理 <button onclick="closeModal('member-modal')"><i class="fas fa-times"></i></button></div>
-            <div id="member-edit-list" class="max-h-60 overflow-y-auto space-y-2"></div>
-            <div class="flex gap-2">
-                <input id="new-member-name" type="text" placeholder="新成員" class="flex-1 p-3.5 bg-gray-50 rounded-xl border-0 text-sm">
-                <button onclick="addMemberAction()" class="px-6 py-3.5 bg-theme text-white rounded-xl font-bold text-sm">新增</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="it-modal" class="modal-bg fixed inset-0 hidden flex items-end justify-center p-4">
-        <div class="bg-white w-full max-w-sm rounded-[32px] p-6 space-y-4 animate-up shadow-2xl">
-            <div class="flex justify-between items-center font-bold text-gray-700">行程編輯 <button onclick="closeModal('it-modal')"><i class="fas fa-times"></i></button></div>
-            <input id="it-id" type="hidden">
+    <div id="modal-itinerary" class="modal-bg flex items-end justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-[32px] p-6 space-y-4 animate-up">
+            <div class="flex justify-between items-center font-bold text-gray-700">行程編輯 <button class="close-modal-btn"><i class="fas fa-times"></i></button></div>
+            <input id="in-it-id" type="hidden">
             <div class="grid grid-cols-2 gap-3">
-                <input id="it-day" type="number" class="w-full p-3.5 bg-gray-50 rounded-xl border-0 text-sm">
-                <input id="it-time" type="time" class="w-full p-3.5 bg-gray-50 rounded-xl border-0 text-sm">
+                <input id="in-it-day" type="number" class="w-full p-3.5 bg-gray-50 rounded-xl border-0 text-sm">
+                <input id="in-it-time" type="time" class="w-full p-3.5 bg-gray-50 rounded-xl border-0 text-sm">
             </div>
-            <input id="it-title" type="text" placeholder="行程標題" class="w-full p-3.5 bg-gray-50 rounded-xl border-0 text-sm">
-            <input id="it-map" type="text" placeholder="Google Maps 連結" class="w-full p-3.5 bg-gray-50 rounded-xl border-0 text-xs">
-            <select id="it-type" class="w-full p-3.5 bg-gray-50 rounded-xl text-sm border-0">
+            <input id="in-it-title" type="text" placeholder="行程標題" class="w-full p-3.5 bg-gray-50 rounded-xl border-0 text-sm">
+            <input id="in-it-map" type="text" placeholder="Google Maps 連結" class="w-full p-3.5 bg-gray-50 rounded-xl border-0 text-xs">
+            <select id="in-it-type" class="w-full p-3.5 bg-gray-50 rounded-xl text-sm border-0">
                 <option value="default">📍 一般</option>
                 <option value="food">🍜 美食</option>
                 <option value="flight">✈️ 航空</option>
                 <option value="transit">🚇 交通</option>
                 <option value="spot">🗾 景點</option>
-                <option value="shrine">⛩️ 神社</option>
-                <option value="park">🎡 樂園</option>
             </select>
             <div class="flex gap-3">
-                <button id="it-delete-btn" onclick="deleteItinerary()" class="flex-1 py-3.5 bg-gray-100 text-gray-400 rounded-xl font-bold text-sm">刪除</button>
-                <button onclick="saveItinerary()" class="flex-[2] bg-theme text-white rounded-xl font-bold text-sm">儲存</button>
+                <button id="btn-it-del" class="flex-1 py-3.5 bg-gray-100 text-gray-400 rounded-xl font-bold text-sm">刪除</button>
+                <button id="btn-it-save" class="flex-[2] bg-theme text-white rounded-xl font-bold text-sm">儲存</button>
             </div>
         </div>
     </div>
 
-    <div id="memo-modal" class="modal-bg fixed inset-0 hidden flex items-end justify-center p-4">
-        <div class="bg-white w-full max-w-sm rounded-[32px] p-6 space-y-4 animate-up shadow-2xl">
-            <div class="flex justify-between items-center font-bold text-gray-700">待辦事項 <button onclick="closeModal('memo-modal')"><i class="fas fa-times"></i></button></div>
-            <input id="memo-id" type="hidden">
-            <textarea id="memo-text" rows="3" class="w-full p-4 bg-gray-50 rounded-xl border-0 text-sm outline-none" placeholder="輸入內容..."></textarea>
+    <div id="modal-members" class="modal-bg flex items-end justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-[32px] p-6 space-y-4 animate-up">
+            <div class="flex justify-between items-center font-bold text-gray-700">旅伴管理 <button class="close-modal-btn"><i class="fas fa-times"></i></button></div>
+            <div id="edit-member-list-ui" class="max-h-60 overflow-y-auto space-y-2"></div>
+            <div class="flex gap-2">
+                <input id="in-new-member" type="text" placeholder="新成員名稱" class="flex-1 p-3.5 bg-gray-50 rounded-xl border-0 text-sm">
+                <button id="btn-member-add" class="px-6 py-3.5 bg-theme text-white rounded-xl font-bold text-sm">新增</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-memo" class="modal-bg flex items-end justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-[32px] p-6 space-y-4 animate-up">
+            <div class="flex justify-between items-center font-bold text-gray-700">待辦事項 <button class="close-modal-btn"><i class="fas fa-times"></i></button></div>
+            <input id="in-memo-id" type="hidden">
+            <textarea id="in-memo-text" rows="3" class="w-full p-4 bg-gray-50 rounded-xl border-0 text-sm" placeholder="輸入內容..."></textarea>
             <div class="flex gap-3">
-                <button id="memo-delete-btn" onclick="deleteMemo()" class="flex-1 py-3.5 bg-gray-100 text-red-400 rounded-xl font-bold text-sm hidden">刪除</button>
-                <button onclick="saveMemoInternal()" class="flex-[2] bg-amber-400 text-white rounded-xl font-bold text-sm">儲存</button>
+                <button id="btn-memo-del" class="flex-1 py-3.5 bg-gray-100 text-red-300 rounded-xl font-bold text-sm">刪除</button>
+                <button id="btn-memo-save" class="flex-[2] bg-amber-400 text-white rounded-xl font-bold text-sm">儲存</button>
             </div>
         </div>
     </div>
 
-    <!-- Firebase SDK (僅在提供設定時載入) -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-
-        // --- GitHub 分享專用：設定偵測區 ---
-        let db = null; let auth = null; let appId = 'github-travel-app';
-        let cloudEnabled = false;
-
-        try {
-            // 如果是在我提供的環境中，會有這些全域變數
-            if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-                const config = JSON.parse(__firebase_config);
-                const app = initializeApp(config);
-                db = getFirestore(app);
-                auth = getAuth(app);
-                appId = typeof __app_id !== 'undefined' ? __app_id : appId;
-                cloudEnabled = true;
-            }
-        } catch (e) { console.warn("Firebase 未配置，切換至本地模式。"); }
-
-        // 狀態管理
-        let state = JSON.parse(localStorage.getItem('TRIP_STATE_V8')) || {
+    <script>
+        // --- 核心邏輯與資料 ---
+        let state = JSON.parse(localStorage.getItem('TRIP_APP_DATA_V9')) || {
             title: "TOKYO", subtitle: "5/16 - 5/22 旅程管家",
             themeColor: "#ffb7c5", themeGradient: "linear-gradient(135deg, #ffb7c5, #ffcfd9)",
             selectedDay: 1, members: ["我", "旅伴A"], bills: [], memos: [],
             itinerary: [{ id: 101, day: 1, time: "16:50", title: "✈️ 抵達羽田機場", type: "flight", map: "" }]
         };
 
-        // 初始化
-        window.onload = () => {
-            if (cloudEnabled && auth) {
-                onAuthStateChanged(auth, async (user) => {
-                    if (user) {
-                        const docSnap = await getDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'state'));
-                        if (docSnap.exists()) { state = docSnap.data(); }
-                    } else { signInAnonymously(auth); }
-                    applyTheme(); renderAll();
-                });
-            } else {
-                applyTheme(); renderAll();
-            }
+        const CAT_CONFIG = {
+            food: { label: '美食', color: '#ffb7c5' }, transit: { label: '交通', color: '#93c5fd' },
+            shop: { label: '購物', color: '#fde047' }, spot: { label: '景點', color: '#86efac' },
+            flight: { label: '航空', color: '#fda4af' }, other: { label: '其他', color: '#d1d5db' },
+            default: { label: '一般', color: '#ffffff' }
         };
+        const EX = 0.21;
 
-        // 核心邏輯
-        window.saveToCloud = async () => {
-            if (!cloudEnabled) { showToast("目前為本地模式 🏠"); return; }
-            const btn = document.getElementById('btn-save'); btn.innerHTML = '<span class="loading-spinner"></span>';
-            try {
-                await setDoc(doc(db, 'artifacts', appId, 'users', auth.currentUser.uid, 'data', 'state'), state);
-                showToast("雲端同步成功！ ✅");
-            } catch (e) { showToast("儲存失敗 ❌"); }
-            btn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> 儲存雲端';
-        };
-
-        window.applyTheme = () => {
+        // --- 介面渲染函數 ---
+        function applyStyles() {
             document.documentElement.style.setProperty('--theme-color', state.themeColor);
             document.documentElement.style.setProperty('--theme-gradient', state.themeGradient);
-        };
+            document.getElementById('display-main-title').innerText = state.title;
+            document.getElementById('display-sub-title').innerText = state.subtitle;
+        }
 
-        window.renderAll = () => {
-            localStorage.setItem('TRIP_STATE_V8', JSON.stringify(state));
-            document.getElementById('main-title').innerText = state.title;
-            document.getElementById('sub-title').innerText = state.subtitle;
-            
-            // 渲染行程、天數、旅伴等 (邏輯同前版本，確保 DOM ID 正確)
+        function renderAll() {
+            localStorage.setItem('TRIP_APP_DATA_V9', JSON.stringify(state));
+            applyStyles();
+
+            // 1. 行程天數
             const dates = ["5/16", "5/17", "5/18", "5/19", "5/20", "5/21", "5/22"];
-            document.getElementById('day-tabs').innerHTML = dates.map((d, i) => `
-                <button onclick="window.state.selectedDay=${i+1};renderAll()" class="day-tab ${state.selectedDay===i+1?'active':'bg-gray-50 text-gray-300'} px-4 py-2 rounded-xl text-[10px] font-bold">Day ${i+1}</button>`).join('');
+            document.getElementById('day-tabs-container').innerHTML = dates.map((d, i) => `
+                <button onclick="switchDay(${i+1})" class="day-tab ${state.selectedDay===i+1?'active':'bg-gray-50 text-gray-300'} px-4 py-2 rounded-xl text-[10px] font-bold">Day ${i+1}</button>`).join('');
 
+            // 2. 行程清單
             const its = state.itinerary.filter(x => x.day === state.selectedDay).sort((a,b)=>a.time.localeCompare(b.time));
-            document.getElementById('itinerary-list').innerHTML = its.map(x => `
-                <div class="rounded-2xl p-4 card-${x.type || 'default'} flex items-center gap-3 shadow-sm">
-                    <div class="w-10 font-bold text-gray-400 text-[10px]" onclick="openItModal(${x.id})">${x.time}</div>
-                    <div class="flex-1 font-bold text-gray-700 text-xs truncate" onclick="openItModal(${x.id})">${x.title}</div>
-                    ${x.map ? `<a href="${x.map}" target="_blank" class="w-8 h-8 bg-white/60 rounded-full flex items-center justify-center text-theme text-xs"><i class="fas fa-map-marker-alt"></i></a>` : ''}
+            document.getElementById('itinerary-list-container').innerHTML = its.map(x => `
+                <div class="rounded-2xl p-4 card-${x.type || 'default'} flex items-center gap-3 shadow-sm" onclick="editItinerary(${x.id})">
+                    <div class="w-10 font-bold text-gray-400 text-[10px]">${x.time}</div>
+                    <div class="flex-1 font-bold text-gray-700 text-xs truncate">${x.title}</div>
+                    ${x.map ? `<a href="${x.map}" target="_blank" onclick="event.stopPropagation()" class="w-8 h-8 bg-white/60 rounded-full flex items-center justify-center text-theme text-xs"><i class="fas fa-map-marker-alt"></i></a>` : ''}
                 </div>`).join('') || '<p class="text-center py-10 text-gray-300 text-[10px]">尚未規劃行程 🕊️</p>';
 
-            document.getElementById('member-list').innerHTML = state.members.map(m => `
-                <div class="bg-gray-50 px-3 py-1.5 rounded-full text-[10px] font-bold text-gray-400 border border-gray-100">${m}</div>`).join('');
-            
-            document.getElementById('bill-payer').innerHTML = state.members.map(m => `<option value="${m}">${m}</option>`).join('');
-            document.getElementById('bill-sharers').innerHTML = state.members.map(m => `
-                <label class="flex items-center gap-2 bg-gray-50 p-2 rounded-xl">
-                    <input type="checkbox" name="sharer" value="${m}" checked class="accent-pink-400">
-                    <span class="text-[9px] font-bold text-gray-500 truncate">${m}</span>
-                </label>`).join('');
+            // 3. 分帳成員
+            document.getElementById('member-badges-container').innerHTML = state.members.map(m => `<div class="bg-gray-50 px-3 py-1.5 rounded-full text-[10px] font-bold text-gray-400 border border-gray-100">${m}</div>`).join('');
+            document.getElementById('in-bill-payer').innerHTML = state.members.map(m => `<option value="${m}">${m}</option>`).join('');
+            document.getElementById('bill-sharers-container').innerHTML = state.members.map(m => `
+                <label class="flex items-center gap-2 bg-gray-50 p-2 rounded-xl"><input type="checkbox" name="sharer" value="${m}" checked class="accent-pink-400"><span class="text-[9px] font-bold text-gray-500 truncate">${m}</span></label>`).join('');
 
-            document.getElementById('bill-history').innerHTML = state.bills.slice().reverse().map(b => `
+            // 4. 支出歷史
+            document.getElementById('bill-history-container').innerHTML = state.bills.slice().reverse().map(b => `
                 <div class="flex justify-between items-center bg-gray-50/50 p-3 rounded-2xl border border-gray-50">
                     <div class="min-w-0">
                         <p class="text-[11px] font-bold text-gray-700 truncate">${b.desc}</p>
@@ -334,142 +299,194 @@
                     </div>
                     <div class="text-right">
                         <p class="text-[10px] font-bold text-theme">${b.currency==='JPY'?'¥':'$'}${b.amount.toLocaleString()}</p>
-                        <i onclick="deleteBill(${b.id})" class="fas fa-trash-alt text-[9px] text-gray-200"></i>
+                        <i onclick="deleteBill(${b.id})" class="fas fa-trash-alt text-[9px] text-gray-200 cursor-pointer"></i>
                     </div>
                 </div>`).join('');
 
-            document.getElementById('memo-items').innerHTML = (state.memos || []).map(m => `
+            // 5. 待辦清單
+            document.getElementById('memo-list-container').innerHTML = (state.memos || []).map(m => `
                 <div class="flex items-center gap-3 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm">
-                    <i onclick="toggleMemo(${m.id})" class="fas ${m.done?'fa-check-circle text-green-400':'fa-circle text-gray-100'} text-xl"></i>
-                    <span onclick="openMemoModal(${m.id})" class="flex-1 text-xs ${m.done?'text-gray-300 line-through':'text-gray-600 font-medium'} truncate">${m.text}</span>
-                    <i onclick="deleteMemoDirectly(${m.id})" class="fas fa-trash-alt text-gray-200 text-xs"></i>
+                    <i onclick="toggleMemo(${m.id})" class="fas ${m.done?'fa-check-circle text-green-400':'fa-circle text-gray-100'} text-xl cursor-pointer"></i>
+                    <span onclick="editMemo(${m.id})" class="flex-1 text-xs ${m.done?'text-gray-300 line-through':'text-gray-600 font-medium'} truncate">${m.text}</span>
+                    <i onclick="deleteMemo(${m.id})" class="fas fa-trash-alt text-gray-200 text-xs cursor-pointer"></i>
                 </div>`).join('');
-            
+
             renderAnalysis();
-        };
-
-        // 全域函數掛載
-        window.state = state;
-        window.closeModal = (id) => document.getElementById(id).classList.add('hidden');
-        window.showToast = (msg) => {
-            const t = document.getElementById('toast'); t.innerText = msg; t.style.display = 'block';
-            setTimeout(() => t.style.display = 'none', 2000);
-        };
-        window.selectTheme = (c, g) => { state.themeColor = c; state.themeGradient = g; applyTheme(); };
-        window.openTitleModal = () => {
-            document.getElementById('title-modal').classList.remove('hidden');
-            document.getElementById('edit-main-title').value = state.title;
-            document.getElementById('edit-sub-title').value = state.subtitle;
-        };
-        window.saveHeader = () => {
-            state.title = document.getElementById('edit-main-title').value;
-            state.subtitle = document.getElementById('edit-sub-title').value;
-            closeModal('title-modal'); renderAll();
-        };
-        window.switchTab = (t) => {
-            ['itinerary', 'members', 'memo', 'analysis'].forEach(x => {
-                document.getElementById(`sec-${x}`).classList.add('hidden');
-                document.getElementById(`btn-${x}`).className = "tab-btn px-4 py-2 rounded-full text-[11px] font-bold text-gray-400 whitespace-nowrap";
-            });
-            document.getElementById(`sec-${t}`).classList.remove('hidden');
-            document.getElementById(`btn-${t}`).className = "tab-btn active px-4 py-2 rounded-full text-[11px] font-bold whitespace-nowrap";
-        };
-        
-        window.openMemberModal = () => { document.getElementById('member-modal').classList.remove('hidden'); renderMemberEditList(); };
-        function renderMemberEditList() {
-            document.getElementById('member-edit-list').innerHTML = state.members.map((m, i) => `
-                <div class="flex items-center gap-2 bg-gray-50 p-2 rounded-xl mb-2">
-                    <input type="text" onchange="window.state.members[${i}]=this.value" value="${m}" class="flex-1 bg-transparent border-0 text-xs font-bold outline-none">
-                    <button onclick="state.members.splice(${i},1);renderMemberEditList();renderAll();" class="text-red-300"><i class="fas fa-trash-alt"></i></button>
-                </div>`).join('');
         }
-        window.addMemberAction = () => {
-            const n = document.getElementById('new-member-name').value;
-            if(n) { state.members.push(n); document.getElementById('new-member-name').value=""; renderMemberEditList(); renderAll(); }
-        };
-
-        window.openItModal = (id = null) => {
-            document.getElementById('it-modal').classList.remove('hidden');
-            if(id) {
-                const it = state.itinerary.find(x => x.id === id);
-                document.getElementById('it-id').value = it.id;
-                document.getElementById('it-day').value = it.day;
-                document.getElementById('it-time').value = it.time;
-                document.getElementById('it-title').value = it.title;
-                document.getElementById('it-map').value = it.map || "";
-                document.getElementById('it-type').value = it.type;
-                document.getElementById('it-delete-btn').classList.remove('hidden');
-            } else {
-                document.getElementById('it-id').value = "";
-                document.getElementById('it-day').value = state.selectedDay;
-                document.getElementById('it-time').value = "09:00";
-                document.getElementById('it-title').value = "";
-                document.getElementById('it-map').value = "";
-                document.getElementById('it-delete-btn').classList.add('hidden');
-            }
-        };
-        window.saveItinerary = () => {
-            const id = document.getElementById('it-id').value;
-            const d = { id: id ? parseInt(id) : Date.now(), day: parseInt(document.getElementById('it-day').value), time: document.getElementById('it-time').value, title: document.getElementById('it-title').value, map: document.getElementById('it-map').value, type: document.getElementById('it-type').value };
-            if(!d.title) return;
-            if(id) state.itinerary = state.itinerary.map(x => x.id == id ? d : x);
-            else state.itinerary.push(d);
-            closeModal('it-modal'); renderAll();
-        };
-        window.deleteItinerary = () => { state.itinerary = state.itinerary.filter(x => x.id != document.getElementById('it-id').value); closeModal('it-modal'); renderAll(); };
-
-        window.addBill = () => {
-            const desc = document.getElementById('bill-desc').value; const amt = parseFloat(document.getElementById('bill-amount').value);
-            const payer = document.getElementById('bill-payer').value; const cat = document.getElementById('bill-cat').value;
-            const currency = document.getElementById('bill-currency').value;
-            const sharers = Array.from(document.querySelectorAll('input[name="sharer"]:checked')).map(el => el.value);
-            if(!desc || isNaN(amt) || sharers.length === 0) return;
-            state.bills.push({ id: Date.now(), desc, amount: amt, payer, category: cat, currency, sharers });
-            document.getElementById('bill-desc').value = ""; document.getElementById('bill-amount').value = "";
-            renderAll();
-        };
-        window.deleteBill = (id) => { state.bills = state.bills.filter(b => b.id !== id); renderAll(); };
-
-        window.toggleMemo = (id) => { state.memos = state.memos.map(m => m.id === id ? {...m, done: !m.done} : m); renderAll(); };
-        window.openMemoModal = (id = null) => {
-            document.getElementById('memo-modal').classList.remove('hidden');
-            if(id) {
-                const m = state.memos.find(x => x.id === id);
-                document.getElementById('memo-id').value = m.id; document.getElementById('memo-text').value = m.text;
-                document.getElementById('memo-delete-btn').classList.remove('hidden');
-            } else {
-                document.getElementById('memo-id').value = ""; document.getElementById('memo-text').value = "";
-                document.getElementById('memo-delete-btn').classList.add('hidden');
-            }
-        };
-        window.saveMemoInternal = () => {
-            const id = document.getElementById('memo-id').value; const text = document.getElementById('memo-text').value;
-            if(!text) return;
-            if(id) state.memos = state.memos.map(m => m.id == id ? {...m, text} : m);
-            else state.memos.push({ id: Date.now(), text, done: false });
-            closeModal('memo-modal'); renderAll();
-        };
-        window.deleteMemoDirectly = (id) => { state.memos = state.memos.filter(m => m.id != id); renderAll(); };
-        window.deleteMemo = () => { state.memos = state.memos.filter(m => m.id != document.getElementById('memo-id').value); closeModal('memo-modal'); renderAll(); };
 
         function renderAnalysis() {
-            const EX = 0.21; let totalTwd = 0; let catTotals = { food:0, transit:0, shop:0, spot:0, flight:0, other:0 };
-            let memberCosts = {}; state.members.forEach(m => memberCosts[m] = 0);
+            let totalTwd = 0; let catTotals = { food:0, transit:0, shop:0, spot:0, flight:0, other:0 };
+            let mCosts = {}; state.members.forEach(m => mCosts[m] = 0);
             state.bills.forEach(b => {
                 const twd = b.currency === 'JPY' ? b.amount * EX : b.amount;
                 totalTwd += twd; catTotals[b.category] += twd;
-                const share = twd / b.sharers.length;
-                b.sharers.forEach(s => { if(memberCosts[s] !== undefined) memberCosts[s] += share; });
+                const share = twd / (b.sharers.length || 1);
+                b.sharers.forEach(s => { if(mCosts[s] !== undefined) mCosts[s] += share; });
             });
-            let lastDeg = 0; let gradientStr = ""; const activeCats = Object.entries(catTotals).filter(e => e[1] > 0);
+            let lastDeg = 0; let grad = ""; const activeCats = Object.entries(catTotals).filter(e => e[1] > 0);
             activeCats.forEach(([cat, val], idx) => {
-                const deg = (val / (totalTwd||1)) * 360;
-                gradientStr += `${CAT_CONFIG[cat].color} ${lastDeg}deg ${lastDeg + deg}deg${idx < activeCats.length - 1 ? ', ' : ''}`;
+                const deg = (val / (totalTwd || 1)) * 360;
+                grad += `${CAT_CONFIG[cat].color} ${lastDeg}deg ${lastDeg + deg}deg${idx < activeCats.length - 1 ? ', ' : ''}`;
                 lastDeg += deg;
             });
-            document.getElementById('pie-chart-view').style.background = totalTwd > 0 ? `conic-gradient(${gradientStr})` : "#eee";
-            document.getElementById('analysis-categories').innerHTML = activeCats.map(([cat, val]) => `<div class="flex justify-between text-[10px]"><span>${CAT_CONFIG[cat].label}</span><b>$${Math.round(val)}</b></div>`).join('');
-            document.getElementById('member-analysis-list').innerHTML = state.members.map(m => `<div class="flex justify-between text-xs p-2 bg-gray-50 rounded-lg"><span>${m}</span><b class="text-theme">$${Math.round(memberCosts[m])}</b></div>`).join('');
+            document.getElementById('pie-chart-ui').style.background = totalTwd > 0 ? `conic-gradient(${grad})` : "#eee";
+            document.getElementById('analysis-cats-ui').innerHTML = activeCats.map(([cat, val]) => `<div class="flex justify-between text-[10px]"><span>${CAT_CONFIG[cat].label}</span><b>$${Math.round(val)}</b></div>`).join('');
+            document.getElementById('member-analysis-ui').innerHTML = state.members.map(m => `<div class="flex justify-between text-xs p-2 bg-gray-50 rounded-lg"><span>${m}</span><b class="text-theme">$${Math.round(mCosts[m])}</b></div>`).join('');
+        }
+
+        // --- 全域按鈕功能 ---
+        window.switchDay = (d) => { state.selectedDay = d; renderAll(); };
+        window.deleteBill = (id) => { state.bills = state.bills.filter(b => b.id !== id); renderAll(); };
+        window.toggleMemo = (id) => { state.memos = state.memos.map(m => m.id === id ? {...m, done: !m.done} : m); renderAll(); };
+        window.deleteMemo = (id) => { state.memos = state.memos.filter(m => m.id !== id); renderAll(); };
+
+        // --- 事件綁定 ---
+        document.addEventListener('DOMContentLoaded', () => {
+            renderAll();
+
+            // 1. 分頁切換
+            const tabs = ['itinerary', 'members', 'analysis', 'memo'];
+            tabs.forEach(t => {
+                document.getElementById(`nav-${t}`).onclick = () => {
+                    tabs.forEach(x => {
+                        document.getElementById(`section-${x}`).classList.add('hidden');
+                        document.getElementById(`nav-${x}`).className = "tab-btn px-4 py-2 rounded-full text-[11px] font-bold text-gray-400 whitespace-nowrap";
+                    });
+                    document.getElementById(`section-${t}`).classList.remove('hidden');
+                    document.getElementById(`nav-${t}`).className = "tab-btn active px-4 py-2 rounded-full text-[11px] font-bold whitespace-nowrap";
+                };
+            });
+
+            // 2. 彈窗關閉
+            document.querySelectorAll('.close-modal-btn').forEach(btn => {
+                btn.onclick = () => document.querySelectorAll('.modal-bg').forEach(m => m.style.display = 'none');
+            });
+
+            // 3. 行程設定
+            document.getElementById('header-edit-trigger').onclick = () => {
+                document.getElementById('modal-settings').style.display = 'flex';
+                document.getElementById('in-title-main').value = state.title;
+                document.getElementById('in-title-sub').value = state.subtitle;
+                // 色球勾選
+                document.querySelectorAll('.color-dot').forEach(dot => {
+                    dot.classList.toggle('selected', dot.dataset.c === state.themeColor);
+                    dot.onclick = () => {
+                        state.themeColor = dot.dataset.c;
+                        state.themeGradient = dot.dataset.g;
+                        document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('selected'));
+                        dot.classList.add('selected');
+                        applyStyles();
+                    };
+                });
+            };
+            document.getElementById('btn-save-settings').onclick = () => {
+                state.title = document.getElementById('in-title-main').value;
+                state.subtitle = document.getElementById('in-title-sub').value;
+                document.getElementById('modal-settings').style.display = 'none';
+                renderAll(); showToast("設定已儲存");
+            };
+
+            // 4. 新增行程
+            document.getElementById('btn-add-itinerary').onclick = () => {
+                document.getElementById('modal-itinerary').style.display = 'flex';
+                document.getElementById('in-it-id').value = "";
+                document.getElementById('in-it-day').value = state.selectedDay;
+                document.getElementById('in-it-time').value = "09:00";
+                document.getElementById('in-it-title').value = "";
+                document.getElementById('in-it-map').value = "";
+                document.getElementById('btn-it-del').classList.add('hidden');
+            };
+            window.editItinerary = (id) => {
+                const it = state.itinerary.find(x => x.id === id);
+                document.getElementById('modal-itinerary').style.display = 'flex';
+                document.getElementById('in-it-id').value = it.id;
+                document.getElementById('in-it-day').value = it.day;
+                document.getElementById('in-it-time').value = it.time;
+                document.getElementById('in-it-title').value = it.title;
+                document.getElementById('in-it-map').value = it.map || "";
+                document.getElementById('in-it-type').value = it.type;
+                document.getElementById('btn-it-del').classList.remove('hidden');
+            };
+            document.getElementById('btn-it-save').onclick = () => {
+                const id = document.getElementById('in-it-id').value;
+                const data = { id: id ? parseInt(id) : Date.now(), day: parseInt(document.getElementById('in-it-day').value), time: document.getElementById('in-it-time').value, title: document.getElementById('in-it-title').value, map: document.getElementById('in-it-map').value, type: document.getElementById('in-it-type').value };
+                if(!data.title) return;
+                if(id) state.itinerary = state.itinerary.map(x => x.id == id ? data : x);
+                else state.itinerary.push(data);
+                document.getElementById('modal-itinerary').style.display = 'none';
+                renderAll();
+            };
+            document.getElementById('btn-it-del').onclick = () => {
+                state.itinerary = state.itinerary.filter(x => x.id != document.getElementById('in-it-id').value);
+                document.getElementById('modal-itinerary').style.display = 'none';
+                renderAll();
+            };
+
+            // 5. 旅伴管理
+            document.getElementById('btn-manage-members').onclick = () => {
+                document.getElementById('modal-members').style.display = 'flex';
+                renderMemberEditor();
+            };
+            function renderMemberEditor() {
+                document.getElementById('edit-member-list-ui').innerHTML = state.members.map((m, i) => `
+                    <div class="flex items-center gap-2 bg-gray-50 p-2 rounded-xl">
+                        <input type="text" onchange="state.members[${i}]=this.value;renderAll()" value="${m}" class="flex-1 bg-transparent border-0 text-xs font-bold outline-none">
+                        <button onclick="state.members.splice(${i},1);renderMemberEditor();renderAll();" class="text-red-300"><i class="fas fa-trash-alt"></i></button>
+                    </div>`).join('');
+            }
+            window.renderMemberEditor = renderMemberEditor;
+            document.getElementById('btn-member-add').onclick = () => {
+                const n = document.getElementById('in-new-member').value;
+                if(n) { state.members.push(n); document.getElementById('in-new-member').value = ""; renderMemberEditor(); renderAll(); }
+            };
+
+            // 6. 支出
+            document.getElementById('btn-submit-bill').onclick = () => {
+                const desc = document.getElementById('in-bill-desc').value; const amt = parseFloat(document.getElementById('in-bill-amount').value);
+                const sharers = Array.from(document.querySelectorAll('input[name="sharer"]:checked')).map(el => el.value);
+                if(!desc || isNaN(amt) || sharers.length === 0) return;
+                state.bills.push({ id: Date.now(), desc, amount: amt, payer: document.getElementById('in-bill-payer').value, category: document.getElementById('in-bill-cat').value, currency: document.getElementById('in-bill-currency').value, sharers });
+                document.getElementById('in-bill-desc').value = ""; document.getElementById('in-bill-amount').value = "";
+                renderAll(); showToast("支出已記錄");
+            };
+
+            // 7. 待辦
+            document.getElementById('btn-add-memo').onclick = () => {
+                document.getElementById('modal-memo').style.display = 'flex';
+                document.getElementById('in-memo-id').value = "";
+                document.getElementById('in-memo-text').value = "";
+                document.getElementById('btn-memo-del').style.display = 'none';
+            };
+            window.editMemo = (id) => {
+                const m = state.memos.find(x => x.id === id);
+                document.getElementById('modal-memo').style.display = 'flex';
+                document.getElementById('in-memo-id').value = m.id;
+                document.getElementById('in-memo-text').value = m.text;
+                document.getElementById('btn-memo-del').style.display = 'block';
+            };
+            document.getElementById('btn-memo-save').onclick = () => {
+                const id = document.getElementById('in-memo-id').value; const txt = document.getElementById('in-memo-text').value;
+                if(!txt) return;
+                if(id) state.memos = state.memos.map(m => m.id == id ? {...m, text:txt} : m);
+                else state.memos.push({ id: Date.now(), text:txt, done:false });
+                document.getElementById('modal-memo').style.display = 'none';
+                renderAll();
+            };
+            document.getElementById('btn-memo-del').onclick = () => {
+                state.memos = state.memos.filter(m => m.id != document.getElementById('in-memo-id').value);
+                document.getElementById('modal-memo').style.display = 'none';
+                renderAll();
+            };
+
+            // 8. 雲端按鈕 (GitHub 提示)
+            document.getElementById('btn-save-cloud').onclick = () => {
+                showToast("GitHub 預覽僅支援本地儲存 🏠");
+            };
+        });
+
+        function showToast(msg) {
+            const t = document.getElementById('toast'); t.innerText = msg; t.style.display = 'block';
+            setTimeout(() => t.style.display = 'none', 2000);
         }
     </script>
 </body>
