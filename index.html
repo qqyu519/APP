@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TOKYO 🗼 旅程管家 V8</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+TC:wght@400;700&display=swap');
+        
+        :root { 
+            --theme-color: #ffb7c5; 
+            --theme-gradient: linear-gradient(135deg, #ffb7c5, #ffcfd9);
+        }
+        
+        body { 
+            font-family: 'Noto Sans TC', sans-serif; 
+            background-color: #fdfaf9; 
+            color: #5a4a42; 
+            padding-bottom: 120px; 
+            -webkit-tap-highlight-color: transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .kawaii-header { 
+            background: var(--theme-gradient); 
+            border-radius: 0 0 40px 40px; 
+            transition: background 0.5s ease;
+        }
+        
+        .tab-btn.active { 
+            background-color: var(--theme-color); 
+            color: white; 
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); 
+        }
+        
+        .day-tab.active { 
+            background-color: white; 
+            color: var(--theme-color); 
+            border: 2px solid var(--theme-color); 
+        }
+
+        .text-theme { color: var(--theme-color); }
+        .bg-theme { background-color: var(--theme-color); }
+        .border-theme { border-color: var(--theme-color); }
+
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .modal-bg { background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); z-index: 100; }
+        .animate-up { animation: slideUp 0.3s ease-out; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+        .pie-chart {
+            width: 140px; height: 140px;
+            border-radius: 50%;
+            background: conic-gradient(from 0deg, #eee 0deg 360deg);
+            margin: 0 auto; position: relative;
+        }
+        .pie-chart::after {
+            content: ""; position: absolute; inset: 30px;
+            background: white; border-radius: 50%;
+        }
+
+        .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 10px 20px; border-radius: 20px; font-size: 12px; z-index: 9999; display: none; }
+        .loading-spinner { border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top: 3px solid #fff; width: 16px; height: 16px; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .clickable-area:active { background-color: rgba(255,255,255,0.2); border-radius: 20px; }
+
+        /* 行程卡片類別樣式保持 */
+        .card-food { background-color: #fff7ed; border: 1px solid #fed7aa; }
+        .card-spot { background-color: #f0fdf4; border: 1px solid #bbf7d0; }
+        .card-transit { background-color: #f0f9ff; border: 1px solid #bae6fd; }
+        .card-park { background-color: #f5f3ff; border: 1px solid #ddd6fe; }
+        .card-shrine { background-color: #fef2f2; border: 1px solid #fecaca; }
+        .card-flight { background-color: #fff1f2; border: 1px solid #fda4af; }
+        .card-default { background-color: #ffffff; border: 1px solid #f3ebeb; }
+
+        .color-dot { width: 32px; height: 32px; border-radius: 50%; cursor: pointer; transition: transform 0.2s; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .color-dot:active { transform: scale(0.9); }
+        .color-dot.selected { border: 2px solid #5a4a42; transform: scale(1.1); }
+    </style>
+</head>
+<body>
+
+    <div id="toast" class="toast">已更新 🌸</div>
+
+    <header class="kawaii-header pt-12 pb-14 px-6 text-center relative overflow-hidden">
+        <div class="absolute top-4 right-4 z-30">
+            <button onclick="saveToCloud()" id="btn-save" class="bg-white/20 hover:bg-white/40 text-white px-4 py-2 rounded-full text-[10px] font-bold flex items-center gap-2 transition-all">
+                <i class="fas fa-cloud-upload-alt"></i> <span>儲存雲端</span>
+            </button>
+        </div>
+        
+        <div class="relative z-10 inline-block px-4 py-2 clickable-area" onclick="openTitleModal()">
+            <h1 id="main-title" class="text-4xl font-bold text-white tracking-widest inline" style="font-family: 'ZCOOL KuaiLe', sans-serif;">TOKYO</h1>
+            <i class="fas fa-pen text-white/50 text-xs ml-2 align-middle"></i>
+            <p id="sub-title" class="text-white/90 text-[10px] mt-2 font-medium tracking-widest uppercase">5/16 - 5/22 旅程管家</p>
+        </div>
+    </header>
+
+    <nav class="flex flex-col items-center -mt-8 relative z-20 px-4">
+        <div class="bg-white/95 backdrop-blur-md p-1.5 rounded-full shadow-lg flex space-x-1 border border-pink-50 overflow-x-auto hide-scrollbar max-w-full">
+            <button onclick="switchTab('itinerary')" id="btn-itinerary" class="tab-btn active px-4 py-2 rounded-full text-[11px] font-bold whitespace-nowrap">行程</button>
+            <button onclick="switchTab('members')" id="btn-members" class="tab-btn px-4 py-2 rounded-full text-[11px] font-bold text-gray-400 whitespace-nowrap">分帳</button>
+            <button onclick="switchTab('analysis')" id="btn-analysis" class="tab-btn px-4 py-2 rounded-full text-[11px] font-bold text-gray-400 whitespace-nowrap">分析</button>
+            <button onclick="switchTab('memo')" id="btn-memo" class="tab-btn px-4 py-2 rounded-full text-[11px] font-bold text-gray-400 whitespace-nowrap">待辦</button>
+        </div>
+    </nav>
+
+    <main class="mt-8 px-5 max-w-md mx-auto">
+        <!-- 1. 行程區 -->
+        <section id="sec-itinerary" class="space-y-4">
+            <div id="day-tabs" class="flex space-x-2 overflow-x-auto hide-scrollbar py-2"></div>
+            <div id="itinerary-list" class="space-y-3 pb-4"></div>
+            <button onclick="openItModal()" class="w-full py-4 bg-white border-dashed border-2 border-theme text-theme rounded-2xl font-bold text-sm opacity-60">+ 新增行程</button>
+        </section>
+
+        <!-- 2. 分帳區 -->
+        <section id="sec-members" class="hidden space-y-4">
+            <div class="bg-white p-5 rounded-[28px] border border-gray-100 shadow-sm space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="font-bold text-gray-700 text-sm">旅伴成員</h3>
+                    <button onclick="openMemberModal()" class="text-[10px] text-theme font-bold bg-theme/10 px-3 py-1 rounded-full"><i class="fas fa-user-edit mr-1"></i> 管理旅伴</button>
+                </div>
+                <div id="member-list" class="flex flex-wrap gap-2"></div>
+            </div>
+
+            <div class="bg-white p-5 rounded-[28px] border border-gray-100 shadow-sm space-y-4">
+                <h3 class="font-bold text-gray-700 text-sm">新增支出紀錄</h3>
+                <div class="space-y-3">
+                    <input id="bill-desc" type="text" placeholder="項目內容" class="w-full p-3 bg-gray-50 rounded-xl text-xs border-0 outline-none">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input id="bill-amount" type="number" placeholder="金額" class="w-full p-3 bg-gray-50 rounded-xl text-xs border-0 outline-none">
+                        <select id="bill-currency" class="bg-gray-50 rounded-xl px-2 text-[10px] border-0 outline-none">
+                            <option value="JPY">JPY ¥</option>
+                            <option value="TWD">TWD $</option>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="space-y-1">
+                            <label class="text-[9px] font-bold text-gray-400 ml-1">誰付的？</label>
+                            <select id="bill-payer" class="w-full p-2.5 bg-gray-50 rounded-xl text-[10px] border-0 outline-none"></select>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[9px] font-bold text-gray-400 ml-1">類別</label>
+                            <select id="bill-cat" class="w-full p-2.5 bg-gray-50 rounded-xl text-[10px] border-0 outline-none">
+                                <option value="food">🍱 美食</option>
+                                <option value="transit">🚇 交通</option>
+                                <option value="shop">🛍️ 購物</option>
+                                <option value="spot">🗾 景點</option>
+                                <option value="flight">✈️ 航空</option>
+                                <option value="other">❓ 其他</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="bill-sharers" class="grid grid-cols-2 gap-2 py-1"></div>
+                </div>
+                <button onclick="addBill()" class="w-full py-3.5 bg-theme text-white rounded-xl font-bold shadow-md shadow-black/5 text-sm">加入清單</button>
+            </div>
+
+            <div class="bg-white p-5 rounded-[28px] border border-gray-100 shadow-sm">
+                <h3 class="font-bold text-gray-700 text-sm mb-4">支出歷史</h3>
+                <div id="bill-history" class="space-y-3"></div>
+            </div>
+        </section>
+
+        <!-- 3. 消費分析區 -->
+        <section id="sec-analysis" class="hidden space-y-4">
+            <div class="bg-white p-6 rounded-[28px] border border-gray-100 shadow-sm space-y-6">
+                <div id="pie-chart-view" class="pie-chart"></div>
+                <div id="analysis-categories" class="space-y-2"></div>
+                <div class="pt-4 border-t border-gray-50">
+                    <h4 class="font-bold text-gray-700 text-xs mb-3">個人負擔 (TWD)</h4>
+                    <div id="member-analysis-list" class="space-y-2"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. 待辦區 -->
+        <section id="sec-memo" class="hidden space-y-4">
+            <div id="memo-items" class="space-y-3"></div>
+            <button onclick="openMemoModal()" class="w-full py-4 bg-white border-dashed border-2 border-amber-100 text-amber-400 rounded-2xl font-bold text-sm">+ 新增待辦</button>
+        </section>
+    </main>
+
+    <!-- Modal: 修改標題 & 選擇顏色 -->
+    <div id="title-modal" class="modal-bg fixed inset-0 hidden flex items-end justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-[32px] p-6 space-y-4 animate-up shadow-2xl">
+            <div class="flex justify-between items-center font-bold text-gray-700">旅程設定 <button onclick="closeModal('title-modal')"><i class="fas fa-times text-gray-300"></i></button></div>
+            <div class="space-y-3">
+                <label class="text-[10px] font-bold text-gray-400 ml-1">主題色系</label>
+                <div class="flex gap-4 justify-center py-2">
+                    <div onclick="selectTheme('#ffb7c5', 'linear-gradient(135deg, #ffb7c5, #ffcfd9)')" class="color-dot bg-[#ffb7c5]" data-color="#ffb7c5"></div>
+                    <div onclick="selectTheme('#93c5fd', 'linear-gradient(135deg, #93c5fd, #c7d2fe)')" class="color-dot bg-[#93c5fd]" data-color="#93c5fd"></div>
+                    <div onclick="selectTheme('#86efac', 'linear-gradient(135deg, #86efac, #d9f99d)')" class="color-dot bg-[#86efac]" data-color="#86efac"></div>
+                    <div onclick="selectTheme('#c4b5fd', 'linear-gradient(135deg, #c4b5fd, #f5d0fe)')" class="color-dot bg-[#c4b5fd]" data-color="#c4b5fd"></div>
+                    <div onclick="selectTheme('#94a3b8', 'linear-gradient(135deg, #94a3b8, #cbd5e1)')" class="color-dot bg-[#94a3b8]" data-color="#94a3b8"></div>
+                </div>
+                <label class="text-[10px] font-bold text-gray-400 ml-1">主標題</label>
+                <input id="edit-main-title" type="text" class="w-full p-4 bg-gray-50 rounded-xl border-0 text-sm outline-none">
+                <label class="text-[10px] font-bold text-gray-400 ml-1">副標題 (日期等)</label>
+                <input id="edit-sub-title" type="text" class="w-full p-4 bg-gray-50 rounded-xl border-0 text-sm outline-none">
+            </div>
+            <button onclick="saveHeader()" class="w-full py-3.5 bg-theme text-white rounded-xl font-bold text-sm">確認更新</button>
+        </div>
+    </div>
+
+    <!-- 其餘 Modal 保持一致 (成員/行程/待辦) -->
+    <div id="member-modal" class="modal-bg fixed inset-0 hidden flex items-end justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-[32px] p-6 space-y-4 animate-up shadow-2xl">
+            <div class="flex justify-between items-center font-bold text-gray-700">旅伴管理 <button onclick="closeModal('member-modal')"><i class="fas fa-times text-gray-300"></i></button></div>
+            <div id="member-edit-list" class="max-h-60 overflow-y-auto space-y-2 py-2"></div>
+            <div class="flex gap-2">
+                <input id="new-member-name" type="text" placeholder="新成員" class="flex-1 p-3.5 bg-gray-50 rounded-xl border-0 text-sm outline-none">
+                <button onclick="addMemberAction()" class="px-6 py-3.5 bg-theme text-white rounded-xl font-bold text-sm">新增</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="it-modal" class="modal-bg fixed inset-0 hidden flex items-end justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-[32px] p-6 space-y-4 animate-up shadow-2xl">
+            <div class="flex justify-between items-center font-bold text-gray-700">編輯行程 <button onclick="closeModal('it-modal')"><i class="fas fa-times text-gray-300"></i></button></div>
+            <input id="it-id" type="hidden">
+            <div class="grid grid-cols-2 gap-3">
+                <input id="it-day" type="number" class="w-full p-3.5 bg-gray-50 rounded-xl border-0 text-sm">
+                <input id="it-time" type="time" class="w-full p-3.5 bg-gray-50 rounded-xl border-0 text-sm">
+            </div>
+            <input id="it-title" type="text" placeholder="行程標題" class="w-full p-3.5 bg-gray-50 rounded-xl border-0 text-sm">
+            <input id="it-map" type="text" placeholder="Google Maps 連結" class="w-full p-3.5 bg-gray-50 rounded-xl border-0 text-xs">
+            <select id="it-type" class="w-full p-3.5 bg-gray-50 rounded-xl text-sm border-0">
+                <option value="default">📍 一般</option>
+                <option value="food">🍜 美食</option>
+                <option value="flight">✈️ 航空</option>
+                <option value="transit">🚇 交通</option>
+                <option value="spot">🗾 景點</option>
+                <option value="shrine">⛩️ 神社</option>
+                <option value="park">🎡 樂園</option>
+            </select>
+            <div class="flex gap-3">
+                <button id="it-delete-btn" onclick="deleteItinerary()" class="flex-1 py-3.5 bg-gray-100 text-gray-400 rounded-xl font-bold text-sm">刪除</button>
+                <button onclick="saveItinerary()" class="flex-[2] bg-theme text-white rounded-xl font-bold text-sm">儲存</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="memo-modal" class="modal-bg fixed inset-0 hidden flex items-end justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-[32px] p-6 space-y-4 animate-up shadow-2xl">
+            <div class="flex justify-between items-center font-bold text-gray-700">待辦事項 <button onclick="closeModal('memo-modal')"><i class="fas fa-times text-gray-300"></i></button></div>
+            <input id="memo-id" type="hidden">
+            <textarea id="memo-text" rows="3" class="w-full p-4 bg-gray-50 rounded-xl border-0 text-sm outline-none" placeholder="輸入內容..."></textarea>
+            <div class="flex gap-3">
+                <button id="memo-delete-btn" onclick="deleteMemo()" class="flex-1 py-3.5 bg-gray-100 text-red-400 rounded-xl font-bold text-sm hidden">刪除</button>
+                <button onclick="saveMemoInternal()" class="flex-[2] bg-amber-400 text-white rounded-xl font-bold text-sm">儲存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'tokyo-trip-app-v8';
+
+        let state = JSON.parse(localStorage.getItem('TOKYO_TRIP_V8')) || {
+            title: "TOKYO", subtitle: "5/16 - 5/22 旅程管家",
+            themeColor: "#ffb7c5", themeGradient: "linear-gradient(135deg, #ffb7c5, #ffcfd9)",
+            selectedDay: 1, members: ["我", "旅伴A"], bills: [], memos: [],
+            itinerary: [{ id: 101, day: 1, time: "16:50", title: "✈️ 抵達羽田機場", type: "flight", map: "" }]
+        };
+        let currentUser = null;
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                try {
+                    const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'trip_data', 'main_state');
+                    const docSnap = await getDoc(docRef);
+                    if (docSnap.exists()) {
+                        state = docSnap.data();
+                        applyTheme(); renderAll();
+                    }
+                } catch (e) { console.error(e); }
+            } else { signInAnonymously(auth); }
+        });
+
+        // 頁面初次載入執行
+        window.onload = () => { applyTheme(); renderAll(); };
+
+        // 主題功能
+        window.selectTheme = function(color, gradient) {
+            state.themeColor = color;
+            state.themeGradient = gradient;
+            document.querySelectorAll('.color-dot').forEach(el => {
+                el.classList.toggle('selected', el.getAttribute('data-color') === color);
+            });
+            applyTheme();
+        };
+
+        function applyTheme() {
+            document.documentElement.style.setProperty('--theme-color', state.themeColor);
+            document.documentElement.style.setProperty('--theme-gradient', state.themeGradient);
+        }
+
+        window.openTitleModal = function() {
+            document.getElementById('title-modal').classList.remove('hidden');
+            document.getElementById('edit-main-title').value = state.title;
+            document.getElementById('edit-sub-title').value = state.subtitle;
+            selectTheme(state.themeColor, state.themeGradient);
+        };
+
+        window.saveHeader = function() {
+            state.title = document.getElementById('edit-main-title').value;
+            state.subtitle = document.getElementById('edit-sub-title').value;
+            closeModal('title-modal'); renderAll();
+            showToast("風格已更新 ✨");
+        };
+
+        // 旅伴管理
+        window.openMemberModal = function() {
+            document.getElementById('member-modal').classList.remove('hidden');
+            renderMemberEditList();
+        };
+        function renderMemberEditList() {
+            document.getElementById('member-edit-list').innerHTML = state.members.map((m, i) => `
+                <div class="flex items-center gap-2 bg-gray-50 p-2 rounded-xl">
+                    <input type="text" onchange="updateMemberName(${i}, this.value)" value="${m}" class="flex-1 bg-transparent border-0 text-xs font-bold text-gray-600 outline-none">
+                    <button onclick="removeMemberAction(${i})" class="w-8 h-8 text-red-300 hover:text-red-500"><i class="fas fa-trash-alt"></i></button>
+                </div>`).join('');
+        }
+        window.updateMemberName = function(i, val) { if(val) state.members[i] = val; renderAll(); };
+        window.removeMemberAction = function(i) {
+            if(state.members.length <= 1) { showToast("至少需要一位成員喔！"); return; }
+            state.members.splice(i, 1); renderMemberEditList(); renderAll();
+        };
+        window.addMemberAction = function() {
+            const name = document.getElementById('new-member-name').value;
+            if(name) {
+                state.members.push(name);
+                document.getElementById('new-member-name').value = "";
+                renderMemberEditList(); renderAll();
+            }
+        };
+
+        // 雲端儲存
+        window.saveToCloud = async function() {
+            if (!currentUser) return;
+            const btn = document.getElementById('btn-save');
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = `<span class="loading-spinner"></span>`;
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'trip_data', 'main_state');
+                await setDoc(docRef, state);
+                showToast("雲端同步成功！ ☁️");
+            } catch (e) { showToast("同步失敗 ❌"); }
+            btn.innerHTML = originalHTML;
+        };
+
+        // 渲染邏輯
+        const EXCHANGE_RATE = 0.21;
+        const CAT_CONFIG = {
+            food: { label: '美食', color: '#ffb7c5' }, transit: { label: '交通', color: '#93c5fd' },
+            shop: { label: '購物', color: '#fde047' }, spot: { label: '景點', color: '#86efac' },
+            flight: { label: '航空', color: '#fda4af' }, other: { label: '其他', color: '#d1d5db' }
+        };
+
+        window.renderAll = function() {
+            localStorage.setItem('TOKYO_TRIP_V8', JSON.stringify(state));
+            document.getElementById('main-title').innerText = state.title;
+            document.getElementById('sub-title').innerText = state.subtitle;
+
+            const dates = ["5/16", "5/17", "5/18", "5/19", "5/20", "5/21", "5/22"];
+            document.getElementById('day-tabs').innerHTML = dates.map((d, i) => `
+                <button onclick="state.selectedDay=${i+1};renderAll()" class="day-tab ${state.selectedDay===i+1?'active':'bg-gray-50 text-gray-300'} px-4 py-2 rounded-xl text-[10px] font-bold">Day ${i+1}</button>`).join('');
+
+            const its = state.itinerary.filter(x => x.day === state.selectedDay).sort((a,b)=>a.time.localeCompare(b.time));
+            document.getElementById('itinerary-list').innerHTML = its.map(x => `
+                <div class="rounded-2xl p-4 shadow-sm active:scale-[0.98] card-${x.type || 'default'} flex items-center gap-3">
+                    <div class="w-10 font-bold text-gray-400 text-[10px]" onclick="openItModal(${x.id})">${x.time}</div>
+                    <div class="flex-1 font-bold text-gray-700 text-xs truncate" onclick="openItModal(${x.id})">${x.title}</div>
+                    ${x.map ? `<a href="${x.map}" target="_blank" class="w-8 h-8 bg-white/60 rounded-full flex items-center justify-center text-theme text-xs shadow-sm"><i class="fas fa-map-marker-alt"></i></a>` : ''}
+                </div>`).join('') || '<p class="text-center py-10 text-gray-300 text-[10px]">No Plans 🕊️</p>';
+
+            document.getElementById('member-list').innerHTML = state.members.map(m => `
+                <div class="bg-gray-50 px-3 py-1.5 rounded-full text-[10px] font-bold text-gray-400 border border-gray-100">${m}</div>`).join('');
+            
+            document.getElementById('bill-payer').innerHTML = state.members.map(m => `<option value="${m}">${m}</option>`).join('');
+            document.getElementById('bill-sharers').innerHTML = state.members.map(m => `
+                <label class="flex items-center gap-2 bg-gray-50 p-2 rounded-xl">
+                    <input type="checkbox" name="sharer" value="${m}" checked class="rounded-full accent-current text-theme">
+                    <span class="text-[9px] font-bold text-gray-500 truncate">${m}</span>
+                </label>`).join('');
+
+            document.getElementById('bill-history').innerHTML = state.bills.slice().reverse().map(b => `
+                <div class="grid grid-cols-[1fr_auto] gap-2 items-center bg-gray-50/50 p-3 rounded-2xl border border-gray-50">
+                    <div class="min-w-0">
+                        <p class="text-[11px] font-bold text-gray-700 truncate">${b.desc}</p>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span class="text-[8px] px-1 bg-white border border-gray-100 text-gray-400 rounded">${CAT_CONFIG[b.category]?.label}</span>
+                            <span class="text-[8px] text-gray-300">由 ${b.payer} 付</span>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[10px] font-bold text-theme whitespace-nowrap">${b.currency==='JPY'?'¥':'$'}${b.amount.toLocaleString()}</p>
+                        <i onclick="deleteBill(${b.id})" class="fas fa-trash-alt text-[9px] text-gray-200 cursor-pointer"></i>
+                    </div>
+                </div>`).join('');
+
+            document.getElementById('memo-items').innerHTML = (state.memos || []).map(m => `
+                <div class="flex items-center gap-3 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                    <i onclick="toggleMemo(${m.id})" class="fas ${m.done?'fa-check-circle text-green-400':'fa-circle text-gray-100'} text-xl cursor-pointer"></i>
+                    <span onclick="openMemoModal(${m.id})" class="flex-1 text-xs ${m.done?'text-gray-300 line-through':'text-gray-600 font-medium'} truncate">${m.text}</span>
+                    <i onclick="deleteMemoDirectly(${m.id})" class="fas fa-trash-alt text-gray-200 text-xs"></i>
+                </div>`).join('');
+            renderAnalysis();
+        };
+
+        function renderAnalysis() {
+            let totalTwd = 0; let catTotals = { food:0, transit:0, shop:0, spot:0, flight:0, other:0 };
+            let memberCosts = {}; state.members.forEach(m => memberCosts[m] = 0);
+            state.bills.forEach(b => {
+                const twd = b.currency === 'JPY' ? b.amount * EXCHANGE_RATE : b.amount;
+                totalTwd += twd; catTotals[b.category] += twd;
+                const share = twd / b.sharers.length;
+                b.sharers.forEach(s => { if(memberCosts[s] !== undefined) memberCosts[s] += share; });
+            });
+            let lastDeg = 0; let gradientStr = "";
+            const activeCats = Object.entries(catTotals).filter(e => e[1] > 0);
+            activeCats.forEach(([cat, val], idx) => {
+                const deg = (val / totalTwd) * 360;
+                gradientStr += `${CAT_CONFIG[cat].color} ${lastDeg}deg ${lastDeg + deg}deg`;
+                if(idx < activeCats.length - 1) gradientStr += ", ";
+                lastDeg += deg;
+            });
+            document.getElementById('pie-chart-view').style.background = totalTwd > 0 ? `conic-gradient(${gradientStr})` : "#eee";
+            document.getElementById('analysis-categories').innerHTML = activeCats.map(([cat, val]) => `
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2"><div class="w-2 h-2 rounded-full" style="background:${CAT_CONFIG[cat].color}"></div><span class="text-[10px] text-gray-500">${CAT_CONFIG[cat].label}</span></div>
+                    <span class="text-[10px] font-bold text-gray-700">$ ${Math.round(val).toLocaleString()}</span>
+                </div>`).join('');
+            document.getElementById('member-analysis-list').innerHTML = state.members.map(m => `
+                <div class="flex justify-between items-center bg-gray-50 p-3 rounded-xl">
+                    <span class="text-[10px] font-bold text-gray-400">${m}</span>
+                    <span class="text-xs font-bold text-theme">$ ${Math.round(memberCosts[m]).toLocaleString()}</span>
+                </div>`).join('');
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast'); t.innerText = msg; t.style.display = 'block';
+            setTimeout(() => t.style.display = 'none', 2000);
+        }
+
+        // 行程編輯
+        window.openItModal = function(id = null) {
+            document.getElementById('it-modal').classList.remove('hidden');
+            if(id) {
+                const it = state.itinerary.find(x => x.id === id);
+                document.getElementById('it-id').value = it.id;
+                document.getElementById('it-day').value = it.day;
+                document.getElementById('it-time').value = it.time;
+                document.getElementById('it-title').value = it.title;
+                document.getElementById('it-map').value = it.map || "";
+                document.getElementById('it-type').value = it.type;
+                document.getElementById('it-delete-btn').classList.remove('hidden');
+            } else {
+                document.getElementById('it-id').value = "";
+                document.getElementById('it-day').value = state.selectedDay;
+                document.getElementById('it-time').value = "09:00";
+                document.getElementById('it-title').value = "";
+                document.getElementById('it-map').value = "";
+                document.getElementById('it-type').value = "default";
+                document.getElementById('it-delete-btn').classList.add('hidden');
+            }
+        };
+        window.saveItinerary = function() {
+            const id = document.getElementById('it-id').value;
+            const d = { id: id ? parseInt(id) : Date.now(), day: parseInt(document.getElementById('it-day').value), time: document.getElementById('it-time').value, title: document.getElementById('it-title').value, map: document.getElementById('it-map').value, type: document.getElementById('it-type').value };
+            if(!d.title) return;
+            if(id) state.itinerary = state.itinerary.map(x => x.id == id ? d : x);
+            else state.itinerary.push(d);
+            closeModal('it-modal'); renderAll();
+        };
+        window.deleteItinerary = function() {
+            state.itinerary = state.itinerary.filter(x => x.id != document.getElementById('it-id').value);
+            closeModal('it-modal'); renderAll();
+        };
+
+        // 分帳
+        window.addBill = function() {
+            const desc = document.getElementById('bill-desc').value;
+            const amt = parseFloat(document.getElementById('bill-amount').value);
+            const payer = document.getElementById('bill-payer').value;
+            const cat = document.getElementById('bill-cat').value;
+            const currency = document.getElementById('bill-currency').value;
+            const sharers = Array.from(document.querySelectorAll('input[name="sharer"]:checked')).map(el => el.value);
+            if(!desc || isNaN(amt) || sharers.length === 0) return;
+            state.bills.push({ id: Date.now(), desc, amount: amt, payer, category: cat, currency, sharers });
+            document.getElementById('bill-desc').value = ""; document.getElementById('bill-amount').value = "";
+            renderAll();
+        };
+        window.deleteBill = function(id) { state.bills = state.bills.filter(b => b.id !== id); renderAll(); };
+
+        // 待辦
+        window.toggleMemo = function(id) { state.memos = state.memos.map(m => m.id === id ? {...m, done: !m.done} : m); renderAll(); };
+        window.openMemoModal = function(id = null) {
+            document.getElementById('memo-modal').classList.remove('hidden');
+            if(id) {
+                const m = state.memos.find(x => x.id === id);
+                document.getElementById('memo-id').value = m.id; document.getElementById('memo-text').value = m.text;
+                document.getElementById('memo-delete-btn').classList.remove('hidden');
+            } else {
+                document.getElementById('memo-id').value = ""; document.getElementById('memo-text').value = "";
+                document.getElementById('memo-delete-btn').classList.add('hidden');
+            }
+        };
+        window.saveMemoInternal = function() {
+            const id = document.getElementById('memo-id').value; const text = document.getElementById('memo-text').value;
+            if(!text) return;
+            if(id) state.memos = state.memos.map(m => m.id == id ? {...m, text} : m);
+            else state.memos.push({ id: Date.now(), text, done: false });
+            closeModal('memo-modal'); renderAll();
+        };
+        window.deleteMemoDirectly = function(id) { state.memos = state.memos.filter(m => m.id != id); renderAll(); };
+        window.deleteMemo = function() { state.memos = state.memos.filter(m => m.id != document.getElementById('memo-id').value); closeModal('memo-modal'); renderAll(); };
+
+        // 切換分頁
+        window.switchTab = function(t) {
+            ['itinerary', 'members', 'memo', 'analysis'].forEach(x => {
+                document.getElementById(`sec-${x}`).classList.add('hidden');
+                document.getElementById(`btn-${x}`).className = "tab-btn px-4 py-2 rounded-full text-[11px] font-bold text-gray-400 whitespace-nowrap";
+            });
+            document.getElementById(`sec-${t}`).classList.remove('hidden');
+            document.getElementById(`btn-${t}`).className = "tab-btn active px-4 py-2 rounded-full text-[11px] font-bold whitespace-nowrap";
+        };
+        window.closeModal = function(id) { document.getElementById(id).classList.add('hidden'); };
+    </script>
+</body>
+</html>
